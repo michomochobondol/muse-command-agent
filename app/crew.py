@@ -8,7 +8,7 @@ from app.tools import scrape_website_tool, write_file_tool
 def get_llm() -> LLM:
     """LLM via Groq (free tier, OpenAI-compatible)."""
     return LLM(
-        model=os.getenv("GROQ_MODEL", "groq/llama-3.3-70b-versatile"),
+        model=os.getenv("GROQ_MODEL", "groq/openai/gpt-oss-120b"),
         api_key=os.getenv("GROQ_API_KEY"),
     )
 
