@@ -4,6 +4,14 @@ import os
 from crewai import Agent, Task, Crew, Process, LLM
 from app.tools import scrape_website_tool, write_file_tool
 
+# Workaround bug CrewAI: mark_cache_breakpoint() disuntik ke semua message
+# untuk semua provider, tapi cuma Anthropic yang support. Groq nolak dengan
+# error "property 'cache_breakpoint' is unsupported".
+# Patch ini bikin fungsinya jadi no-op. Lihat crewaiinc/crewai#5886.
+import crewai.llms.cache as _crewai_cache
+
+_crewai_cache.mark_cache_breakpoint = lambda msg: msg
+
 
 def get_llm() -> LLM:
     """LLM via Groq (free tier, OpenAI-compatible)."""
