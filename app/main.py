@@ -115,3 +115,23 @@ async def ws_logs(websocket: WebSocket, job_id: str):
 @app.get("/")
 async def root():
     return {"ok": True, "service": "web-command-center"}
+
+
+@app.get("/debug")
+async def debug():
+    """Endpoint diagnostik sementara: cek versi crewai dan status patch."""
+    import crewai
+    import crewai.llms.cache as cache_mod
+    from crewai.llm import LLM
+
+    test_msg = {"role": "system", "content": "x"}
+    marked = cache_mod.mark_cache_breakpoint(test_msg)
+
+    return {
+        "crewai_version": getattr(crewai, "__version__", "unknown"),
+        "mark_cache_breakpoint_is_noop": "cache_breakpoint" not in marked,
+        "format_method_patched": "CACHE_BREAKPOINT_KEY"
+        in getattr(LLM._format_messages_for_provider, "__code__", {}).co_names
+        if hasattr(LLM._format_messages_for_provider, "__code__")
+        else "unknown",
+    }
