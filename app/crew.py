@@ -7,10 +7,26 @@ from app.tools import scrape_website_tool, write_file_tool
 # Workaround bug CrewAI: mark_cache_breakpoint() disuntik ke semua message
 # untuk semua provider, tapi cuma Anthropic yang support. Groq nolak dengan
 # error "property 'cache_breakpoint' is unsupported".
-# Patch ini bikin fungsinya jadi no-op. Lihat crewaiinc/crewai#5886.
-import crewai.llms.cache as _crewai_cache
+# Patch ini bikin fungsinya jadi no-op di semua tempat yang mengimpornya,
+# karena ada modul yang pakai `from ... import mark_cache_breakpoint`
+# (referensi langsung, tidak lewat atribut modul).
+# Lihat crewaiinc/crewai#5886.
+def _disable_crewai_cache_breakpoint():
+    import sys
+    import crewai.llms.cache as _cache_mod
 
-_crewai_cache.mark_cache_breakpoint = lambda msg: msg
+    _orig = _cache_mod.mark_cache_breakpoint
+    _noop = lambda msg: msg  # noqa: E731
+    _cache_mod.mark_cache_breakpoint = _noop
+    for _mod in list(sys.modules.values()):
+        try:
+            if getattr(_mod, "mark_cache_breakpoint", None) is _orig:
+                _mod.mark_cache_breakpoint = _noop
+        except Exception:
+            pass
+
+
+_disable_crewai_cache_breakpoint()
 
 
 def get_llm() -> LLM:
