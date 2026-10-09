@@ -7,10 +7,9 @@ from app.tools import scrape_website_tool, write_file_tool
 # Workaround bug CrewAI: mark_cache_breakpoint() disuntik ke semua message
 # untuk semua provider, tapi cuma Anthropic yang support. Groq nolak dengan
 # error "property 'cache_breakpoint' is unsupported".
-# Patch ini bikin fungsinya jadi no-op di semua tempat yang mengimpornya,
-# karena ada modul yang pakai `from ... import mark_cache_breakpoint`
-# (referensi langsung, tidak lewat atribut modul).
-# Lihat crewaiinc/crewai#5886.
+# Patch lapis 1: bikin mark_cache_breakpoint jadi no-op di semua tempat
+# yang mengimpornya (ada modul yang pakai `from ... import`, referensi
+# langsung tidak lewat atribut modul). Lihat crewaiinc/crewai#5886.
 def _disable_crewai_cache_breakpoint():
     import sys
     import crewai.llms.cache as _cache_mod
@@ -27,6 +26,30 @@ def _disable_crewai_cache_breakpoint():
 
 
 _disable_crewai_cache_breakpoint()
+
+
+# Patch lapis 2 (pengaman): strip cache_breakpoint dari messages tepat
+# sebelum dikirim ke LiteLLM, di LLM._format_messages_for_provider.
+# Ini titik yang pasti dilewati semua panggilan LLM.
+def _patch_llm_message_formatting():
+    from crewai.llm import LLM
+    from crewai.llms.cache import CACHE_BREAKPOINT_KEY
+
+    _orig_format = LLM._format_messages_for_provider
+
+    def _patched_format(self, messages):
+        cleaned = [
+            {k: v for k, v in msg.items() if k != CACHE_BREAKPOINT_KEY}
+            if isinstance(msg, dict)
+            else msg
+            for msg in (messages or [])
+        ]
+        return _orig_format(self, cleaned)
+
+    LLM._format_messages_for_provider = _patched_format
+
+
+_patch_llm_message_formatting()
 
 
 def get_llm() -> LLM:
